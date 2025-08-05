@@ -21,6 +21,9 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from django.views.decorators.csrf import csrf_exempt
 
+# Add DRF default router fallback if browsable API causes errors (no view registered at /api/)
+# Fix OpenAPI JSON to be accessible at the documented /openapi.json rather than /swagger.json
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
@@ -40,15 +43,15 @@ def get_full_url(request):
     scheme = request.scheme
     host = request.get_host()
     forwarded_port = request.META.get("HTTP_X_FORWARDED_PORT")
-
+    # Fix: Port forwarding is usually handled but may need explicit port for external preview
     if ':' not in host and forwarded_port:
         host = f"{host}:{forwarded_port}"
-
     return f"{scheme}://{host}"
 
 @csrf_exempt
 def dynamic_schema_view(request, *args, **kwargs):
     url = get_full_url(request)
+    # Dynamically set external host for swagger/openapi docs preview
     view = get_schema_view(
         openapi.Info(
             title="My API",
@@ -63,5 +66,7 @@ def dynamic_schema_view(request, *args, **kwargs):
 urlpatterns += [
     re_path(r'^docs/$', dynamic_schema_view, name='schema-swagger-ui'),
     re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    # Correction: Provide /openapi.json for standard OpenAPI consumption (and for preview integration)
+    re_path(r'^openapi\.json$', schema_view.without_ui(cache_timeout=0), name='openapi-json'),
     re_path(r'^swagger\.json$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
 ]
